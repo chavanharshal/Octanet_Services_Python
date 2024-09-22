@@ -1,0 +1,151 @@
+# Task 1 : ATM Machine Simulation
+class Account:
+    def __init__(self, user_id: str, pin: str, balance: float = 0.0):
+        self.user_id = user_id
+        self.pin = pin
+        self.balance = balance
+
+    def get_balance(self) -> float:
+        return self.balance
+
+    def deposit(self, amount: float) -> None:
+        self.balance += amount
+
+    def withdraw(self, amount: float) -> bool:
+        if self.balance >= amount:
+            self.balance -= amount
+            return True
+        return False
+
+
+class Transaction:
+    def __init__(self, type: str, amount: float):
+        self.type = type
+        self.amount = amount
+
+
+class Bank:
+    def __init__(self):
+        self.accounts = {}  # Stores accounts with user_id as key
+        self.transactions = {}  # Stores transactions lists with user_id as key
+
+    def add_account(self, account: Account) -> None:
+        self.accounts[account.user_id] = account
+        self.transactions[account.user_id] = []
+
+    def record_transaction(self, user_id: str, transaction: Transaction) -> None:
+        if user_id in self.transactions:
+            self.transactions[user_id].append(transaction)
+
+    def validate_login(self, user_id: str, pin: str) -> bool:
+        account = self.accounts.get(user_id)
+        return account is not None and account.pin == pin
+
+    def get_account(self, user_id: str) -> Account:
+        return self.accounts.get(user_id)
+
+
+class ATM:
+    def __init__(self, bank: Bank):
+        self.bank = bank
+        self.current_user_id = None
+
+    def start(self):
+        while True:
+            if not self.current_user_id:
+                user_id = input("Enter your user ID: ")
+                pin = input("Enter your PIN: ")
+                if self.bank.validate_login(user_id, pin):
+                    self.current_user_id = user_id
+                    print("Login successful!")
+                    if not self.show_menu():
+                        break  # Exit the start loop if user chooses to quit
+                else:
+                    print("Invalid credentials! Please try again.")
+            else:
+                if not self.show_menu():
+                    break  # Exit the start loop if user chooses to quit
+
+    def show_menu(self):
+        while True:
+            print("\n1. Transaction History\n2. Withdraw\n3. Deposit\n4. Transfer\n5. Quit")
+            choice = input("Choose an option: ")
+            if choice == "1":
+                self.show_transactions()
+            elif choice == "2":
+                self.withdraw()
+            elif choice == "3":
+                self.deposit()
+            elif choice == "4":
+                self.transfer()
+            elif choice == "5":
+                print("Thank you for using the ATM. Goodbye!")
+                self.current_user_id = None  # Clear the current session
+                return False  # Exit the menu loop and signal to exit the start loop
+            else:
+                print("Invalid option! Please choose again.")
+
+    def show_transactions(self):
+        transactions = self.bank.transactions.get(self.current_user_id, [])
+        if transactions:
+            for transaction in transactions:
+                print(f"Type: {transaction.type}, Amount: {transaction.amount}")
+        else:
+            print("No transactions found.")
+
+    def withdraw(self):
+        try:
+            amount = float(input("Enter amount to withdraw: "))
+            account = self.bank.get_account(self.current_user_id)
+            if account and account.withdraw(amount):
+                self.bank.record_transaction(self.current_user_id, Transaction("Withdraw", amount))
+                print(f"Withdrawn: {amount}. New Balance: {account.get_balance()}")
+            else:
+                print("Insufficient funds.")
+        except ValueError:
+            print("Invalid amount. Please enter a numeric value.")
+
+    def deposit(self):
+        try:
+            amount = float(input("Enter amount to deposit: "))
+            account = self.bank.get_account(self.current_user_id)
+            if account:
+                account.deposit(amount)
+                self.bank.record_transaction(self.current_user_id, Transaction("Deposit", amount))
+                print(f"Deposited: {amount}. New Balance: {account.get_balance()}")
+            else:
+                print("Account not found.")
+        except ValueError:
+            print("Invalid amount. Please enter a numeric value.")
+
+    def transfer(self):
+        try:
+            recipient_id = input("Enter receiver's user ID: ")
+            amount = float(input("Enter amount to transfer: "))
+            sender_account = self.bank.get_account(self.current_user_id)
+            recipient_account = self.bank.get_account(recipient_id)
+
+            if sender_account and recipient_account and sender_account.withdraw(amount):
+                recipient_account.deposit(amount)
+                self.bank.record_transaction(self.current_user_id, Transaction("Transfer Out", amount))
+                self.bank.record_transaction(recipient_id, Transaction("Transfer In", amount))
+                print(f"Transferred: {amount} to {recipient_id}. New Balance: {sender_account.get_balance()}")
+            else:
+                print("Transfer failed. Check the recipient ID and your balance.")
+        except ValueError:
+            print("Invalid amount. Please enter a numeric value.")
+
+
+def main():
+    # Creating a bank and adding accounts (2 by default)
+    bank = Bank()
+    bank.add_account(Account("user1", "1234", 50000.0))
+    bank.add_account(Account("user2", "4321", 25000.0))
+
+    # Starting ATM
+    atm = ATM(bank)
+    atm.start()
+
+
+if __name__ == "__main__":
+    main()
